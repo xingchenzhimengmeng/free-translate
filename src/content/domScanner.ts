@@ -154,6 +154,19 @@ export function scanTranslatableElements(
         el.isContentEditable ||
         el.dataset.ftTranslated === 'true' ||
         el.dataset.ftTranslating === 'true'
+        || el.tagName === 'FT-TRANSLATION'
+        || (el.closest && Boolean(el.closest('ft-translation')))
+        || el.classList?.contains('sr-only')
+        || el.classList?.contains('visually-hidden')
+        || el.classList?.contains('ContributionCalendar-day')
+        || el.classList?.contains('ContributionCalendar-label')
+        || (el.closest && (
+          Boolean(el.closest('.js-yearly-contributions')) ||
+          Boolean(el.closest('.js-calendar-graph')) ||
+          Boolean(el.closest('.ContributionCalendar')) ||
+          Boolean(el.closest('.graph-before-activity-overview')) ||
+          Boolean(el.closest('.js-activity-overview-graph'))
+        ))
       ) {
         return NodeFilter.FILTER_REJECT;
       }
@@ -197,6 +210,12 @@ export function scanTranslatableElements(
         }
       }
 
+      // If element already has a translation attached, skip scanning it again
+      if (el.querySelector('ft-translation')) {
+        el = walker.nextNode() as HTMLElement | null;
+        continue;
+      }
+
       let isCandidate = CANDIDATE_TAGS.has(el.tagName);
 
       // Check site-specific priority selectors first
@@ -234,6 +253,16 @@ export function scanTranslatableElements(
       // If it is a container like BLOCKQUOTE or LI or DIV, ensure it doesn't contain nested candidate tags that will be translated separately
       if (isCandidate && (el.tagName === 'BLOCKQUOTE' || el.tagName === 'TD' || el.tagName === 'TH' || el.tagName === 'LI' || el.tagName === 'DIV')) {
         if (hasCandidateChild(el, prioritySelectors)) {
+          isCandidate = false;
+        }
+        // Exclude calendar cells, numeric index cells, and contribution grid cells
+        if (
+          (el.tagName === 'TD' || el.tagName === 'TH') &&
+          (el.classList?.contains('ContributionCalendar-day') ||
+            el.classList?.contains('ContributionCalendar-label') ||
+            el.closest?.('.ContributionCalendar') ||
+            el.closest?.('.js-calendar-graph'))
+        ) {
           isCandidate = false;
         }
       }

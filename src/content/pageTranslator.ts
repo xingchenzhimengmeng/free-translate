@@ -106,6 +106,7 @@ async function translateBatch(
           if (result.fallbackOccurred) {
             showFallbackNotification(result.serviceUsed);
           }
+
           result.translations.forEach((trans, idx) => {
             const target = batchTargets[idx];
             if (target && target.element) {
@@ -142,10 +143,18 @@ export async function translateCurrentPage(): Promise<void> {
       return;
     }
 
+    // Pre-calculate viewport visibility once to prevent forced synchronous layout thrashing
+    const inViewportSet = new Set<HTMLElement>();
+    for (const t of targets) {
+      if (isElementInViewport(t.element)) {
+        inViewportSet.add(t.element);
+      }
+    }
+
     // Sort targets: elements in viewport first
     targets.sort((a, b) => {
-      const aIn = isElementInViewport(a.element);
-      const bIn = isElementInViewport(b.element);
+      const aIn = inViewportSet.has(a.element);
+      const bIn = inViewportSet.has(b.element);
       if (aIn && !bIn) return -1;
       if (!aIn && bIn) return 1;
       return 0;
@@ -209,22 +218,99 @@ export function setDisplayMode(mode: DisplayMode): void {
   switchDisplayMode(mode);
 }
 
+function isDynamicFeedSite(): boolean {
+  if (typeof window === 'undefined') return false;
+  const url = window.location.href.toLowerCase();
+  return (
+    url.includes('youtube.com') ||
+    url.includes('/view/youtube') ||
+    url.includes('twitter.com') ||
+    url.includes('x.com') ||
+    url.includes('reddit.com')
+  );
+}
+
 function setupMutationWatcher(): void {
   if (mutationObserver) return;
-  mutationObserver = new MutationObserver(() => {
-    if (!isTranslated) return;
+  if (!isDynamicFeedSite()) {
+    // Static pages (GitHub, Codeforces, articles, docs) do not need continuous DOM mutation observation
+    return;
+  }
+  mutationObserver = new MutationObserver((mutations) => {
+    if (!isTranslated || isTranslating) return;
+
+    // Strict filter: Ignore any mutations that only add/modify our own extension nodes
+    let hasExternalNewNodes = false;
+    for (const m of mutations) {
+      if (m.type === 'childList') {
+        for (let i = 0; i < m.addedNodes.length; i++) {
+          const node = m.addedNodes[i];
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLElement;
+            if (
+              el.tagName === 'FT-TRANSLATION' ||
+              el.id === 'ft-float-button-root' ||
+              el.id === 'ft-selection-popup-root' ||
+              el.classList?.contains('ft-btn') ||
+              el.closest?.('ft-translation') ||
+              el.closest?.('#ft-float-button-root')
+            ) {
+              continue;
+            }
+            hasExternalNewNodes = true;
+            break;
+          }
+        }
+      }
+      if (hasExternalNewNodes) break;
+    }
+
+    if (!hasExternalNewNodes) return;
+
     if (mutationDebounceTimer) clearTimeout(mutationDebounceTimer);
     mutationDebounceTimer = setTimeout(async () => {
-      const settings = await getSettings();
-      const targets = scanTranslatableElements(document.body);
-      if (targets.length === 0) return;
-      await translateBatch(
-        targets,
-        settings.targetLanguage,
-        settings.displayMode,
-        settings.enableAIContext ?? true,
-      );
-    }, 400);
+      if (!isTranslated || isTranslating) return;
+      isTranslating = true;
+      try {
+        if (mutationObserver) {
+          mutationObserver.disconnect();
+          mutationObserver = null;
+        }
+        const settings = await getSettings();
+        const targets = scanTranslatableElements(document.body, window.location.href);
+        if (targets.length === 0) return;
+
+        const batches: ScanTarget[][] = [];
+        let currentBatch: ScanTarget[] = [];
+        let currentCharCount = 0;
+
+        for (const item of targets) {
+          const len = item.text.length;
+          if (
+            currentBatch.length >= 15 ||
+            (currentCharCount + len > 3000 && currentBatch.length > 0)
+          ) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentCharCount = 0;
+          }
+          currentBatch.push(item);
+          currentCharCount += len;
+        }
+        if (currentBatch.length > 0) {
+          batches.push(currentBatch);
+        }
+
+        for (const batch of batches) {
+          await translateBatch(batch, settings.targetLanguage, settings.displayMode, settings.enableAIContext ?? true);
+        }
+      } finally {
+        isTranslating = false;
+        if (isTranslated) {
+          setupMutationWatcher();
+        }
+      }
+    }, 800);
   });
 
   mutationObserver.observe(document.body, {

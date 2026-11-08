@@ -2,11 +2,11 @@ import type { TranslateResult } from '@/types';
 import { getSettings } from '@/utils/storage';
 
 const HOST_ID = 'ft-selection-popup-root';
+const TRIGGER_ID = 'ft-selection-trigger-icon';
 let activeHost: HTMLElement | null = null;
 let triggerIcon: HTMLElement | null = null;
-let lastSelectedText = '';
 
-function removePopup(): void {
+export function removePopup(): void {
   if (activeHost) {
     activeHost.remove();
     activeHost = null;
@@ -18,28 +18,49 @@ function removePopup(): void {
 }
 
 export function initSelectionTranslator(): void {
-  document.addEventListener('mouseup', async (e) => {
-    // If clicking inside the popup, do not close or trigger new popup
-    if (activeHost && activeHost.contains(e.target as Node)) {
+  // 1. Dismiss popups when clicking anywhere outside
+  document.addEventListener('mousedown', (e) => {
+    const target = e.target as Node;
+    if (activeHost && (activeHost === target || activeHost.contains(target))) {
+      return;
+    }
+    if (triggerIcon && (triggerIcon === target || triggerIcon.contains(target))) {
+      return;
+    }
+    removePopup();
+  });
+
+  // 2. Detect text selection on mouseup
+  document.addEventListener('mouseup', (e) => {
+    const target = e.target as Node;
+    if (activeHost && (activeHost === target || activeHost.contains(target))) {
+      return;
+    }
+    if (triggerIcon && (triggerIcon === target || triggerIcon.contains(target))) {
       return;
     }
 
-    const selection = window.getSelection();
-    const text = selection ? selection.toString().trim() : '';
+    setTimeout(async () => {
+      const selection = window.getSelection();
+      const text = selection ? selection.toString().trim() : '';
 
-    if (!text || text.length < 2 || text.length > 2000) {
-      removePopup();
-      return;
-    }
+      if (!text || text.length < 1 || text.length > 2500) {
+        return;
+      }
 
-    lastSelectedText = text;
+      // Must contain at least one readable alphanumeric or CJK character
+      if (!/[a-zA-Z0-9\u4e00-\u9fa5\u3040-\u30ff]/.test(text)) {
+        return;
+      }
 
-    // Get selection position
-    const range = selection?.getRangeAt(0);
-    const rect = range?.getBoundingClientRect();
-    if (!rect) return;
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      if (!range) return;
+      const rects = range.getClientRects();
+      const lastRect = rects.length > 0 ? rects[rects.length - 1] : range.getBoundingClientRect();
+      if (!lastRect || (lastRect.width === 0 && lastRect.height === 0)) return;
 
-    showTriggerIcon(rect.right + 4, rect.bottom + 4, text);
+      showTriggerIcon(lastRect.right + 6, lastRect.bottom + 6, text);
+    }, 20);
   });
 
   document.addEventListener('keydown', (e) => {
@@ -53,23 +74,27 @@ function showTriggerIcon(x: number, y: number, text: string): void {
   removePopup();
 
   triggerIcon = document.createElement('div');
+  triggerIcon.id = TRIGGER_ID;
+  const posX = Math.max(10, Math.min(x, window.innerWidth - 38));
+  const posY = Math.max(10, Math.min(y, window.innerHeight - 38));
   triggerIcon.style.cssText = `
     all: initial;
     position: fixed;
-    left: ${Math.min(x, window.innerWidth - 40)}px;
-    top: ${Math.min(y, window.innerHeight - 40)}px;
-    width: 26px;
-    height: 26px;
+    left: ${posX}px;
+    top: ${posY}px;
+    width: 28px;
+    height: 28px;
     background: #2563eb;
     color: white;
-    border-radius: 6px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     z-index: 2147483647;
     transition: transform 0.15s ease;
+    user-select: none;
   `;
   triggerIcon.innerHTML = `
     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -81,9 +106,22 @@ function showTriggerIcon(x: number, y: number, text: string): void {
       <path d="M14 18h6" />
     </svg>
   `;
+  triggerIcon.title = 'Free Translate - 划词翻译';
+
+  // Intercept mousedown & mouseup to prevent clearing selection
+  triggerIcon.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
+
+  triggerIcon.addEventListener('mouseup', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
 
   triggerIcon.addEventListener('click', (e) => {
     e.stopPropagation();
+    e.preventDefault();
     showTranslationCard(x, y, text);
   });
 
@@ -99,13 +137,20 @@ export async function showTranslationCard(
 
   const host = document.createElement('div');
   host.id = HOST_ID;
+  const cardWidth = 320;
+  const cardHeight = 240;
+  const posX = Math.max(16, Math.min(x, window.innerWidth - cardWidth - 16));
+  const posY = Math.max(16, Math.min(y, window.innerHeight - cardHeight - 16));
   host.style.cssText = `
     all: initial;
     position: fixed;
-    left: ${Math.max(16, Math.min(x, window.innerWidth - 340))}px;
-    top: ${Math.max(16, Math.min(y, window.innerHeight - 260))}px;
+    left: ${posX}px;
+    top: ${posY}px;
     z-index: 2147483647;
   `;
+  host.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+  });
   document.body.appendChild(host);
   activeHost = host;
 
@@ -252,14 +297,25 @@ export async function showTranslationCard(
         if (resultEl) resultEl.textContent = translation;
 
         copyBtn?.addEventListener('click', () => {
-          navigator.clipboard.writeText(translation).then(() => {
+          const onCopied = () => {
             if (copyBtn) {
               copyBtn.textContent = '已复制!';
               setTimeout(() => {
                 copyBtn.textContent = '复制译文';
               }, 1500);
             }
-          });
+          };
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(translation).then(onCopied).catch(() => {});
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = translation;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch {}
+            ta.remove();
+            onCopied();
+          }
         });
       } else {
         if (tagEl) tagEl.textContent = '错误';

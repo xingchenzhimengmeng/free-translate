@@ -8,6 +8,21 @@ const distDir = path.resolve(__dirname, '.output/chrome-mv3');
 
 const POLYFILL_SCRIPT = `
 <script>
+window.addEventListener('error', (e) => {
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'WINDOW_ERROR', message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error?.stack })
+  }).catch(() => {});
+});
+window.addEventListener('unhandledrejection', (e) => {
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'UNHANDLED_REJECTION', reason: String(e.reason?.stack || e.reason) })
+  }).catch(() => {});
+});
+
 if (typeof window.chrome === 'undefined') {
   window.chrome = {};
 }
@@ -241,18 +256,14 @@ async function handleApiMessage(req, res) {
   let msg = {};
   try { msg = JSON.parse(body); } catch {}
 
+  console.log(`[API MESSAGE] type=${msg.type} timestamp=${new Date().toISOString()}`);
+
   if (msg.type === 'TRANSLATE') {
     const { texts, to } = msg.payload || {};
+    console.log(`[TRANSLATE REQ] count=${texts?.length} first="${texts?.[0]?.slice(0, 30)}"`);
     try {
-      let translations;
-      let serviceUsed = 'local-ai-gateway';
-      try {
-        translations = await translateWithMagpie(texts || [], to);
-      } catch (magpieErr) {
-        console.error('Magpie error:', magpieErr.message);
-        translations = await translateWithMicrosoft(texts || [], to || 'zh-CN');
-        serviceUsed = 'microsoft-free';
-      }
+      const translations = await translateWithMicrosoft(texts || [], to || 'zh-CN');
+      const serviceUsed = 'microsoft-free';
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
@@ -461,6 +472,15 @@ function getCodeforcesPageHtml() {
 const server = http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
 
+  if (urlPath === '/api/log' && req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    console.log('[BROWSER LOG]', body);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
   if (urlPath === '/api/message' && req.method === 'POST') {
     return handleApiMessage(req, res);
   }
@@ -473,6 +493,13 @@ const server = http.createServer(async (req, res) => {
 
   if (urlPath === '/view/github') {
     const html = await getGithubPageHtml();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+    return;
+  }
+
+  if (urlPath === '/view/github-profile') {
+    const html = getGithubProfileHtml();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
     return;
@@ -843,6 +870,141 @@ function getCodeforces2279DHtml() {
         <div class="output">
           <div class="title">Output</div>
           <pre>2</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+function getGithubProfileHtml() {
+  return `<!DOCTYPE html>
+<html lang="en" data-color-mode="light">
+<head>
+  <meta charset="UTF-8">
+  <title>felicityblueish - GitHub Profile</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #ffffff; color: #1f2328; margin: 0; padding: 20px; line-height: 1.5; }
+    .top-bar { max-width: 900px; margin: 0 auto 24px; padding: 12px 16px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+    .top-bar a { color: #0969da; text-decoration: none; margin-left: 12px; font-weight: 600; }
+    .profile-layout { max-width: 900px; margin: 0 auto; display: flex; gap: 32px; }
+    .profile-sidebar { width: 280px; flex-shrink: 0; }
+    .avatar { width: 260px; height: 260px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; font-size: 72px; color: white; font-weight: bold; margin-bottom: 16px; }
+    .vcard-names { margin-bottom: 16px; }
+    .vcard-fullname { font-size: 24px; font-weight: 700; line-height: 1.25; margin: 0; }
+    .vcard-username { font-size: 18px; color: #656d76; font-weight: 300; margin: 4px 0 0 0; }
+    .user-profile-bio { font-size: 16px; margin-bottom: 16px; color: #1f2328; line-height: 1.5; }
+    .profile-main { flex: 1; }
+    .pinned-header { font-size: 16px; font-weight: 600; margin: 0 0 16px 0; }
+    .pinned-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .pinned-card { border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; background: #ffffff; }
+    .repo-name { font-weight: 600; color: #0969da; font-size: 14px; text-decoration: none; }
+    .pinned-item-desc { font-size: 12px; color: #656d76; margin: 8px 0 0 0; line-height: 1.5; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .calendar-cell { width: 10px; height: 10px; border-radius: 2px; }
+  </style>
+  ${POLYFILL_SCRIPT}
+  <script type="module" src="/content-scripts/content.js"></script>
+</head>
+<body>
+  <div class="top-bar">
+    <span>👤 <strong>GitHub 真实个人主页模拟</strong>: felicityblueish</span>
+    <div>
+      <a href="/view/github">README 页面</a>
+      <a href="/view/codeforces-2279d">Codeforces 2279D</a>
+      <a href="/view/youtube">YouTube</a>
+      <a href="/options.html">设置</a>
+    </div>
+  </div>
+
+  <div class="profile-layout">
+    <div class="profile-sidebar">
+      <div class="avatar">F</div>
+      <div class="vcard-names">
+        <h1 class="vcard-fullname">Felicity Blueish</h1>
+        <h2 class="vcard-username">felicityblueish</h2>
+      </div>
+
+      <!-- Exact GitHub profile bio elements -->
+      <div class="p-note user-profile-bio tmp-mb-3 js-user-profile-bio f4" data-bio-text="Build your portfolio website in minutes. ">
+        <div>Build your portfolio website in minutes. </div>
+      </div>
+
+      <div style="font-size: 13px; color: #656d76; margin-top: 16px;">
+        📍 San Francisco, CA &nbsp;•&nbsp; 🔗 https://felicity.dev
+      </div>
+    </div>
+
+    <div class="profile-main">
+      <div class="pinned-header">Pinned Repositories</div>
+      <div class="pinned-grid">
+        <div class="pinned-card">
+          <a class="repo-name" href="#">portfolio-builder</a>
+          <p class="pinned-item-desc">A blazing-fast personal portfolio generator designed for software engineers and designers.</p>
+        </div>
+        <div class="pinned-card">
+          <a class="repo-name" href="#">markdown-resume</a>
+          <p class="pinned-item-desc">Clean, ATS-friendly markdown resume creator with instant PDF export and dark theme.</p>
+        </div>
+      </div>
+
+      <!-- Exact GitHub contribution calendar (小绿图) -->
+      <div class="js-yearly-contributions" style="margin-top: 24px;">
+        <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #1f2328;">
+          1,428 contributions in the last year
+        </h2>
+        <div class="border py-2 graph-before-activity-overview" style="border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; background: #ffffff;">
+          <div class="js-calendar-graph">
+            <table class="ContributionCalendar-grid js-calendar-graph-table" style="border-collapse: separate; border-spacing: 3px;">
+              <tbody>
+                <tr>
+                  <td class="ContributionCalendar-label" style="font-size: 9px; color: #656d76; padding-right: 4px;">Mon</td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-05-04"><span class="sr-only">5 contributions on Monday, May 4, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-05-11"><span class="sr-only">8 contributions on Monday, May 11, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-05-18"><span class="sr-only">12 contributions on Monday, May 18, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#9be9a8;" data-date="2026-05-25"><span class="sr-only">2 contributions on Monday, May 25, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#ebedf0;" data-date="2026-06-01"><span class="sr-only">No contributions on Monday, June 1, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-06-08"><span class="sr-only">6 contributions on Monday, June 8, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-06-15"><span class="sr-only">9 contributions on Monday, June 15, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-06-22"><span class="sr-only">14 contributions on Monday, June 22, 2026</span></td>
+                </tr>
+                <tr>
+                  <td class="ContributionCalendar-label" style="font-size: 9px; color: #656d76; padding-right: 4px;">Wed</td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-05-06"><span class="sr-only">7 contributions on Wednesday, May 6, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-05-13"><span class="sr-only">4 contributions on Wednesday, May 13, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#9be9a8;" data-date="2026-05-20"><span class="sr-only">3 contributions on Wednesday, May 20, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-05-27"><span class="sr-only">11 contributions on Wednesday, May 27, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-06-03"><span class="sr-only">5 contributions on Wednesday, June 3, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-06-10"><span class="sr-only">7 contributions on Wednesday, June 10, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#ebedf0;" data-date="2026-06-17"><span class="sr-only">No contributions on Wednesday, June 17, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-06-24"><span class="sr-only">13 contributions on Wednesday, June 24, 2026</span></td>
+                </tr>
+                <tr>
+                  <td class="ContributionCalendar-label" style="font-size: 9px; color: #656d76; padding-right: 4px;">Fri</td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#9be9a8;" data-date="2026-05-08"><span class="sr-only">2 contributions on Friday, May 8, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-05-15"><span class="sr-only">15 contributions on Friday, May 15, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-05-22"><span class="sr-only">6 contributions on Friday, May 22, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-05-29"><span class="sr-only">8 contributions on Friday, May 29, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#216e39;" data-date="2026-06-05"><span class="sr-only">10 contributions on Friday, June 5, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#9be9a8;" data-date="2026-06-12"><span class="sr-only">3 contributions on Friday, June 12, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#40c463;" data-date="2026-06-19"><span class="sr-only">5 contributions on Friday, June 19, 2026</span></td>
+                  <td class="ContributionCalendar-day calendar-cell" style="background:#30a14e;" data-date="2026-06-26"><span class="sr-only">8 contributions on Friday, June 26, 2026</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 11px; color: #656d76;">
+              <span style="color: #0969da;">Learn how we count contributions</span>
+              <div class="contrib-legend" style="display: flex; align-items: center; gap: 4px;">
+                <span>Less</span>
+                <span class="calendar-cell" style="display:inline-block;background:#ebedf0;"></span>
+                <span class="calendar-cell" style="display:inline-block;background:#9be9a8;"></span>
+                <span class="calendar-cell" style="display:inline-block;background:#40c463;"></span>
+                <span class="calendar-cell" style="display:inline-block;background:#30a14e;"></span>
+                <span class="calendar-cell" style="display:inline-block;background:#216e39;"></span>
+                <span>More</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

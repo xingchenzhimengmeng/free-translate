@@ -25,18 +25,47 @@ export const SITE_RULES: SiteRule[] = [
       '#responsive-meta-container p',
       'div.comment-body p',
       'div.comment-body li',
+      'div.user-profile-bio',
+      '.user-profile-bio',
+      '.p-note',
+      '[data-bio-text]',
+      '.pinned-item-desc',
+      '.user-status-message-wrapper',
+      '[itemprop="description"]',
+      'div.js-user-profile-bio',
     ],
     excludeSelectors: [
+      '.top-bar',
+      '.nav-bar',
       '.highlight',
       'pre',
       'code',
       '.blob-code-inner',
+      '.blob-code',
+      '.blob-num',
+      '.diff-table',
       '.react-blob-sticky-header',
       '.notranslate',
       '.commit-ref',
       '.octicon',
       'nav',
       '.AppHeader',
+      'header',
+      'footer',
+      '.js-yearly-contributions',
+      '.js-calendar-graph',
+      '.ContributionCalendar',
+      '.ContributionCalendar-grid',
+      '.ContributionCalendar-day',
+      '.ContributionCalendar-label',
+      '.graph-before-activity-overview',
+      '.js-activity-overview-graph',
+      '.activity-overview-point',
+      '.contrib-column',
+      '.contrib-legend',
+      '.profile-timeline-year-list',
+      '.sr-only',
+      '.visually-hidden',
     ],
     injectedCss: [
       'article.markdown-body ft-translation { font-size: 0.9em !important; }',
@@ -59,6 +88,7 @@ export const SITE_RULES: SiteRule[] = [
       '#message.ytd-notification-renderer',
     ],
     excludeSelectors: [
+      '.nav-bar',
       '.ytp-caption-window-container',
       '.ytp-caption-segment',
       '.badge',
@@ -87,6 +117,7 @@ export const SITE_RULES: SiteRule[] = [
       '.comment p',
     ],
     excludeSelectors: [
+      '.top-bar',
       '.sample-test pre',
       '.sample-test',
       '.input pre',
@@ -310,7 +341,16 @@ export function findMatchingRule(urlOrHost: string): SiteRule | null {
   let hostname = urlOrHost;
   try {
     if (urlOrHost.includes('://')) {
-      hostname = new URL(urlOrHost).hostname;
+      const urlObj = new URL(urlOrHost);
+      hostname = urlObj.hostname;
+      // Map preview simulation routes to their production counterparts
+      if (hostname === '127.0.0.1' || hostname === 'localhost') {
+        const pathname = urlObj.pathname.toLowerCase();
+        if (pathname.includes('/view/github')) return SITE_RULES.find((r) => r.id === 'github') || null;
+        if (pathname.includes('/view/codeforces')) return SITE_RULES.find((r) => r.id === 'codeforces') || null;
+        if (pathname.includes('/view/youtube')) return SITE_RULES.find((r) => r.id === 'youtube') || null;
+        if (pathname.includes('/view/twitter') || pathname.includes('/view/x')) return SITE_RULES.find((r) => r.id === 'twitter') || null;
+      }
     }
   } catch {}
 
