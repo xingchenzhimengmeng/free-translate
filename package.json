@@ -1,0 +1,36 @@
+{
+  "name": "free-translate",
+  "version": "1.0.0",
+  "description": "免费双语网页翻译扩展",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:edge": "wxt --browser edge",
+    "build": "wxt build",
+    "build:edge": "wxt build --browser edge",
+    "zip": "wxt zip",
+    "zip:edge": "wxt zip --browser edge",
+    "compile": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "npx tsx tests/e2e/test-target-sites.mjs"
+  },
+  "dependencies": {
+    "@wxt-dev/module-react": "^1.2.2",
+    "jszip": "^3.10.2",
+    "lucide-react": "^0.460.0",
+    "pdfjs-dist": "^6.5.438",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "happy-dom": "^15.7.4",
+    "playwright": "^1.65.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "wxt": "^0.19.16"
+  }
+}
