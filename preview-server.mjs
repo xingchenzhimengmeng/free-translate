@@ -485,6 +485,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (urlPath === '/view/codeforces-2279d') {
+    const html = getCodeforces2279DHtml();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+    return;
+  }
+
   if (urlPath === '/view/youtube') {
     const html = getYoutubePageHtml();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -498,6 +505,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     let content = fs.readFileSync(filePath);
     let contentType = 'application/octet-stream';
     if (filePath.endsWith('.html')) {
@@ -758,6 +766,87 @@ function getYoutubePageHtml() {
       list.appendChild(newRenderer);
     }
   </script>
+</body>
+</html>`;
+}
+function getCodeforces2279DHtml() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Problem - 2279D - Codeforces</title>
+  <style>
+    body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background: #fff; color: #000; margin: 0; padding: 20px; line-height: 1.5; }
+    .top-bar { max-width: 860px; margin: 0 auto 20px; padding: 10px 16px; background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 6px; font-size: 13px; color: #084298; display: flex; justify-content: space-between; align-items: center; }
+    .top-bar a { color: #0056b3; text-decoration: none; margin-left: 10px; font-weight: 600; }
+    .problem-statement { max-width: 860px; margin: 0 auto; border: 1px solid #e1e1e1; padding: 24px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .header { text-align: center; margin-bottom: 24px; }
+    .title { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+    .time-limit, .memory-limit, .input-file, .output-file { font-size: 13px; color: #555; }
+    .property-title { display: inline-block; font-weight: 500; }
+    .section-title { font-weight: bold; font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    p { font-size: 14px; margin: 16px 0; line-height: 1.8; }
+    ul { padding-left: 20px; margin: 12px 0; font-size: 14px; line-height: 1.8; }
+    li { margin: 10px 0; }
+    .sample-test { border: 1px solid #888; margin-top: 10px; font-family: monospace; }
+    .sample-test .input, .sample-test .output { padding: 8px 12px; }
+    .sample-test .title { font-size: 12px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; text-align: left; }
+    .sample-test pre { margin: 0; background: #efefef; padding: 6px; border-radius: 4px; font-size: 13px; }
+    .MathJax { font-family: "Times New Roman", Times, serif; font-style: italic; }
+    .MJX_Assistive_MathML { position: absolute; clip: rect(1px, 1px, 1px, 1px); }
+  </style>
+  ${POLYFILL_SCRIPT}
+  <script type="module" src="/content-scripts/content.js"></script>
+</head>
+<body>
+  <div class="top-bar">
+    <span>🏆 <strong>Codeforces 真实竞赛页面模拟</strong>: Contest 2279 Problem D (Meta Graph)</span>
+    <div>
+      <a href="/view/codeforces">478B 页面</a>
+      <a href="/view/github">GitHub</a>
+      <a href="/view/youtube">YouTube</a>
+      <a href="/options.html">设置</a>
+    </div>
+  </div>
+  <div class="problem-statement">
+    <div class="header">
+      <div class="title">D. Meta Graph</div>
+      <div class="time-limit"><div class="property-title">time limit per test: </div>3 seconds</div>
+      <div class="memory-limit"><div class="property-title">memory limit per test: </div>256 megabytes</div>
+      <div class="input-file"><div class="property-title">input: </div>standard input</div>
+      <div class="output-file"><div class="property-title">output: </div>standard output</div>
+    </div>
+    <div>
+      <p>Given a connected, undirected, simple graph <span class="MathJax"><nobr><span class="math"><span class="mrow"><span class="mi">G</span></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>G</mi></math></span></span> with <span class="MathJax"><nobr><span class="math"><span class="mrow"><span class="mi">n</span></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math></span></span> vertices and <span class="MathJax"><nobr><span class="math"><span class="mrow"><span class="mi">m</span></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>m</mi></math></span></span> edges, define its meta-graph <span class="MathJax"><nobr><span class="math"><span class="mrow"><span class="mi">f</span><span class="mo">(</span><span class="mi">G</span><span class="mo">)</span></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span> as follows:</p>
+      <ul>
+        <li><span class="MathJax"><nobr><span class="math"><span class="mrow"><span class="mi">f</span><span class="mo">(</span><span class="mi">G</span><span class="mo">)</span></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span> has <span class="MathJax"><nobr><span class="math"><span class="mrow"><msup><mi>n</mi><mn>2</mn></msup></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msup><mi>n</mi><mn>2</mn></msup></math></span></span> vertices, labelled <span class="MathJax"><nobr><span class="math"><span class="mrow"><msub><mi>a</mi><mi>b</mi></msub></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>a</mi><mi>b</mi></msub></math></span></span> for <span class="MathJax"><nobr><span class="math"><span class="mrow"><mn>1</mn><mo>≤</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo>≤</mo><mi>n</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>1</mn><mo>≤</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo>≤</mo><mi>n</mi></math></span></span>.</li>
+        <li>For every edge <span class="MathJax"><nobr><span class="math"><span class="mrow"><mo stretchy="false">(</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mo stretchy="false">(</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo stretchy="false">)</mo></math></span></span> in <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>G</mi></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>G</mi></math></span></span>, add the edges <span class="MathJax"><nobr><span class="math"><span class="mrow"><mo stretchy="false">(</mo><msub><mi>c</mi><mi>a</mi></msub><mo>,</mo><msub><mi>c</mi><mi>b</mi></msub><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mo stretchy="false">(</mo><msub><mi>c</mi><mi>a</mi></msub><mo>,</mo><msub><mi>c</mi><mi>b</mi></msub><mo stretchy="false">)</mo></math></span></span> for all <span class="MathJax"><nobr><span class="math"><span class="mrow"><mn>1</mn><mo>≤</mo><mi>c</mi><mo>≤</mo><mi>n</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>1</mn><mo>≤</mo><mi>c</mi><mo>≤</mo><mi>n</mi></math></span></span> to <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span>, and also add the edge <span class="MathJax"><nobr><span class="math"><span class="mrow"><mo stretchy="false">(</mo><msub><mi>a</mi><mi>b</mi></msub><mo>,</mo><msub><mi>b</mi><mi>a</mi></msub><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mo stretchy="false">(</mo><msub><mi>a</mi><mi>b</mi></msub><mo>,</mo><msub><mi>b</mi><mi>a</mi></msub><mo stretchy="false">)</mo></math></span></span> to <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span>.</li>
+      </ul>
+      <p>Given two vertices <span class="MathJax"><nobr><span class="math"><span class="mrow"><msub><mi>w</mi><mi>x</mi></msub></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>w</mi><mi>x</mi></msub></math></span></span> and <span class="MathJax"><nobr><span class="math"><span class="mrow"><msub><mi>y</mi><mi>z</mi></msub></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>y</mi><mi>z</mi></msub></math></span></span>, determine the number of edges on the shortest path between them in <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span>.</p>
+    </div>
+    <div class="input-specification">
+      <div class="section-title">Input</div>
+      <p>Each test contains multiple test cases. The first line contains the number of test cases <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>t</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>t</mi></math></span></span> (<span class="MathJax"><nobr><span class="math"><span class="mrow"><mn>1</mn><mo>≤</mo><mi>t</mi><mo>≤</mo><msup><mn>10</mn><mn>4</mn></msup></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>1</mn><mo>≤</mo><mi>t</mi><mo>≤</mo><msup><mn>10</mn><mn>4</mn></msup></math></span></span>). The description of the test cases follows.</p>
+      <p>The first line of each test case contains the two integers <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>n</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math></span></span> and <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>m</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>m</mi></math></span></span> (<span class="MathJax"><nobr><span class="math"><span class="mrow"><mn>2</mn><mo>≤</mo><mi>n</mi><mo>≤</mo><mn>2</mn><mo>⋅</mo><msup><mn>10</mn><mn>5</mn></msup></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>2</mn><mo>≤</mo><mi>n</mi><mo>≤</mo><mn>2</mn><mo>⋅</mo><msup><mn>10</mn><mn>5</mn></msup></math></span></span>, <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>n</mi><mo>−</mo><mn>1</mn><mo>≤</mo><mi>m</mi><mo>≤</mo><mn>2</mn><mo>⋅</mo><msup><mn>10</mn><mn>5</mn></msup></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi><mo>−</mo><mn>1</mn><mo>≤</mo><mi>m</mi><mo>≤</mo><mn>2</mn><mo>⋅</mo><msup><mn>10</mn><mn>5</mn></msup></math></span></span>) — the number of vertices and the number of edges in <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>G</mi></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>G</mi></math></span></span>.</p>
+    </div>
+    <div class="output-specification">
+      <div class="section-title">Output</div>
+      <p>For each test case, output a single integer: the number of edges on the shortest path from <span class="MathJax"><nobr><span class="math"><span class="mrow"><msub><mi>w</mi><mi>x</mi></msub></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>w</mi><mi>x</mi></msub></math></span></span> to <span class="MathJax"><nobr><span class="math"><span class="mrow"><msub><mi>y</mi><mi>z</mi></msub></span></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>y</mi><mi>z</mi></msub></math></span></span> in <span class="MathJax"><nobr><span class="math"><span class="mrow"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></mrow></span></nobr><span class="MJX_Assistive_MathML" role="presentation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>f</mi><mo stretchy="false">(</mo><mi>G</mi><mo stretchy="false">)</mo></math></span></span>.</p>
+    </div>
+    <div class="sample-tests">
+      <div class="section-title">Example</div>
+      <div class="sample-test">
+        <div class="input">
+          <div class="title">Input</div>
+          <pre>3&#10;3 2&#10;1 2 2 1&#10;1 2&#10;2 3</pre>
+        </div>
+        <div class="output">
+          <div class="title">Output</div>
+          <pre>2</pre>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>`;
 }

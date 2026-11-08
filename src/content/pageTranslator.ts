@@ -1,6 +1,6 @@
 import type { DisplayMode, TranslateResult } from '@/types';
 import { getSettings } from '@/utils/storage';
-import { scanTranslatableElements } from './domScanner';
+import { scanTranslatableElements, type ScanTarget } from './domScanner';
 import {
   ensureGlobalStyles,
   injectTranslation,
@@ -63,13 +63,15 @@ function isElementInViewport(el: HTMLElement): boolean {
 }
 
 async function translateBatch(
-  elements: HTMLElement[],
-  texts: string[],
+  batchTargets: ScanTarget[],
   targetLang: string,
   mode: DisplayMode,
   enableAIContext = true,
 ): Promise<void> {
-  if (elements.length === 0) return;
+  if (batchTargets.length === 0) return;
+
+  const elements = batchTargets.map((b) => b.element);
+  const texts = batchTargets.map((b) => b.text);
 
   // Mark elements as currently translating to prevent duplicate scanning
   elements.forEach((el) => {
@@ -105,8 +107,9 @@ async function translateBatch(
             showFallbackNotification(result.serviceUsed);
           }
           result.translations.forEach((trans, idx) => {
-            if (elements[idx]) {
-              injectTranslation(elements[idx], trans, mode);
+            const target = batchTargets[idx];
+            if (target && target.element) {
+              injectTranslation(target.element, trans, mode, target.formulaNodes);
               if (enableAIContext && texts[idx] && trans) {
                 slidingContextBuffer.push({ text: texts[idx], trans });
                 if (slidingContextBuffer.length > 3) {
@@ -149,28 +152,24 @@ export async function translateCurrentPage(): Promise<void> {
     });
 
     // Group into batches (max 15 items or 3000 chars per batch)
-    const batches: Array<{ elements: HTMLElement[]; texts: string[] }> = [];
-    let currentBatch: { elements: HTMLElement[]; texts: string[] } = {
-      elements: [],
-      texts: [],
-    };
+    const batches: ScanTarget[][] = [];
+    let currentBatch: ScanTarget[] = [];
     let currentCharCount = 0;
 
     for (const item of targets) {
       const len = item.text.length;
       if (
-        currentBatch.elements.length >= 15 ||
-        (currentCharCount + len > 3000 && currentBatch.elements.length > 0)
+        currentBatch.length >= 15 ||
+        (currentCharCount + len > 3000 && currentBatch.length > 0)
       ) {
         batches.push(currentBatch);
-        currentBatch = { elements: [], texts: [] };
+        currentBatch = [];
         currentCharCount = 0;
       }
-      currentBatch.elements.push(item.element);
-      currentBatch.texts.push(item.text);
+      currentBatch.push(item);
       currentCharCount += len;
     }
-    if (currentBatch.elements.length > 0) {
+    if (currentBatch.length > 0) {
       batches.push(currentBatch);
     }
 
@@ -180,7 +179,7 @@ export async function translateCurrentPage(): Promise<void> {
       while (queue.length > 0) {
         const batch = queue.shift();
         if (!batch) break;
-        await translateBatch(batch.elements, batch.texts, targetLang, mode, enableAIContext);
+        await translateBatch(batch, targetLang, mode, enableAIContext);
       }
     });
 
@@ -219,11 +218,8 @@ function setupMutationWatcher(): void {
       const settings = await getSettings();
       const targets = scanTranslatableElements(document.body);
       if (targets.length === 0) return;
-      const elements = targets.map((t) => t.element);
-      const texts = targets.map((t) => t.text);
       await translateBatch(
-        elements,
-        texts,
+        targets,
         settings.targetLanguage,
         settings.displayMode,
         settings.enableAIContext ?? true,

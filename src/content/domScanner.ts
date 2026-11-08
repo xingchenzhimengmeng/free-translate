@@ -45,6 +45,23 @@ export const CANDIDATE_TAGS = new Set([
 export interface ScanTarget {
   element: HTMLElement;
   text: string;
+  formulaNodes?: HTMLElement[];
+}
+
+export const MATH_SELECTOR = '.MathJax, .tex-span, .tex-formula, math, mjx-container, .katex';
+
+export function extractTopLevelMath(el: HTMLElement): HTMLElement[] {
+  const all = Array.from(el.querySelectorAll<HTMLElement>(MATH_SELECTOR));
+  return all.filter((item) => {
+    let parent = item.parentElement;
+    while (parent && parent !== el) {
+      if (parent.matches && parent.matches(MATH_SELECTOR)) {
+        return false;
+      }
+      parent = parent.parentElement;
+    }
+    return true;
+  });
 }
 
 export function isElementTranslatable(el: HTMLElement): boolean {
@@ -79,6 +96,26 @@ function getDirectTextContent(el: HTMLElement): string {
     }
   }
   return text.trim();
+}
+
+export function extractCleanText(el: HTMLElement): string {
+  // Fast path if element contains no MathJax, KaTeX or assistive duplicates
+  const hasDuplicates = el.querySelector(
+    '.MJX_Assistive_MathML, mjx-assistive-mml, .katex-mathml, .MathJax_Preview, script[type^="math/tex"], .annotation, ft-translation'
+  );
+  if (!hasDuplicates) {
+    return (el.innerText || el.textContent || '').trim();
+  }
+
+  // Clone node to safely remove duplicate math markup without mutating the real page DOM
+  const clone = el.cloneNode(true) as HTMLElement;
+  const duplicates = clone.querySelectorAll(
+    '.MJX_Assistive_MathML, mjx-assistive-mml, .katex-mathml, .MathJax_Preview, script[type^="math/tex"], .annotation, ft-translation'
+  );
+  duplicates.forEach((node) => node.remove());
+
+  const clean = (clone.innerText || clone.textContent || '').trim();
+  return clean;
 }
 
 function hasCandidateChild(el: HTMLElement, prioritySelectors: string[] = []): boolean {
@@ -214,9 +251,35 @@ export function scanTranslatableElements(
         // Filter out paragraphs that only contain images (like shields badges)
         const hasOnlyImages = el.querySelectorAll('img, svg').length > 0 && getDirectTextContent(el).length === 0;
         if (!hasOnlyImages) {
-        const fullText = (el.innerText || el.textContent || '').trim();
-        if (fullText.length >= 2 && /[^\d\s\W]/.test(fullText)) {
-          targets.push({ element: el, text: fullText });
+          const topMath = extractTopLevelMath(el);
+          if (topMath.length > 0) {
+            // Formula-rich element: preserve exact rendered math nodes and replace with [#i#] tokens
+            const clone = el.cloneNode(true) as HTMLElement;
+            const cloneMath = extractTopLevelMath(clone);
+            const formulaNodes: HTMLElement[] = [];
+
+            cloneMath.forEach((node, i) => {
+              if (topMath[i]) {
+                formulaNodes.push(topMath[i].cloneNode(true) as HTMLElement);
+                const placeholder = document.createTextNode(` [#${i}#] `);
+                node.parentNode?.replaceChild(placeholder, node);
+              }
+            });
+
+            // Remove any assistive or preview duplicates left in the clone
+            clone.querySelectorAll(
+              '.MJX_Assistive_MathML, mjx-assistive-mml, .katex-mathml, .MathJax_Preview, script[type^="math/tex"], .annotation, ft-translation'
+            ).forEach((n) => n.remove());
+
+            const fullText = (clone.innerText || clone.textContent || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+            if (fullText.length >= 2 && /[^\d\s\W]/.test(fullText)) {
+              targets.push({ element: el, text: fullText, formulaNodes });
+            }
+          } else {
+            const fullText = extractCleanText(el);
+            if (fullText.length >= 2 && /[^\d\s\W]/.test(fullText)) {
+              targets.push({ element: el, text: fullText });
+            }
         }
         }
       }
